@@ -1,4 +1,4 @@
-import { test, expect, Page } from "playwright/test";
+import { test, expect } from "playwright/test";
 
 import { Locator } from "@playwright/test";
 
@@ -28,13 +28,13 @@ test("Edit a Kanban Task to mark a subtask as complete and move the Task to the 
 
   const firstColumnName = await sections.first().locator("h2").innerText();
 
-  console.log(`Nombre de la primera columna: ${firstColumnName}`)
+  console.log(`Nombre de la primera columna: ${firstColumnName}`);
 
   let targetTaskName = "";
   let initialCompleted = 0;
   let initialTotal = 0;
   let targetTask: Locator | null = null;
-  let totalSubtasks = 0
+  let totalSubtasks = 0;
 
   for (let colId = 1; colId < columnCount; colId++) {
     const tasks = sections.nth(colId).locator("article");
@@ -44,8 +44,10 @@ test("Edit a Kanban Task to mark a subtask as complete and move the Task to the 
       const task = tasks.nth(i);
       const subtaskInfoText = await task.locator("p").first().innerText();
       const { completed, total } = parseSubtaskCount(subtaskInfoText);
-      totalSubtasks = total
-      console.log(`${subtaskInfoText} - ${completed} of ${total} subtasks, should be the same`)
+      totalSubtasks = total;
+      console.log(
+        `${subtaskInfoText} - ${completed} of ${total} subtasks, should be the same`,
+      );
 
       if (total > 0 && completed < total) {
         targetTask = task;
@@ -77,7 +79,10 @@ test("Edit a Kanban Task to mark a subtask as complete and move the Task to the 
     .filter({ has: page.locator('input[type="checkbox"]') });
   const subtaskCount = await subtaskLabels.count();
   console.log(`Found ${subtaskCount} subtask labels`);
-  expect(subtaskCount, "Expect the total found before to be the same as the subtaskCount here").toEqual(totalSubtasks)
+  expect(
+    subtaskCount,
+    "Expect the total found before to be the same as the subtaskCount here",
+  ).toEqual(totalSubtasks);
   expect(subtaskCount, "Expected at least one subtask").toBeGreaterThan(0);
 
   let checkedSubtaskTitle = "";
@@ -137,7 +142,7 @@ test("Edit a Kanban Task to mark a subtask as complete and move the Task to the 
   // 6. Close the card edit page
   const backdrop = page.locator("div.fixed.min-h-screen.bg-black").first();
   if ((await backdrop.count()) > 0) {
-    await backdrop.click({ position: { x: 0, y: 0 }});
+    await backdrop.click({ position: { x: 0, y: 0 } });
   } else {
     await page.keyboard.press("Escape");
   }
@@ -151,10 +156,9 @@ test("Edit a Kanban Task to mark a subtask as complete and move the Task to the 
     .locator("article")
     .filter({ hasText: targetTaskName })
     .first();
-  await expect(
-    updatedTask,
-    `Task "${targetTaskName}" not visible`,
-  ).toBeVisible({ timeout: 10000 });
+  await expect(updatedTask, `Task "${targetTaskName}" not visible`).toBeVisible(
+    { timeout: 10000 },
+  );
 
   const updatedText = await updatedTask.locator("p").first().innerText();
   const { completed: newCompleted, total: newTotal } =
