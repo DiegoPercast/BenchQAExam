@@ -9,38 +9,57 @@ export interface TaskInfo {
 }
 
 export class KanbanPage {
-  constructor(private readonly page: Page) {}
+  constructor(private readonly page: Page) { }
 
   async navigate() {
     await this.page.goto("/", { waitUntil: "domcontentloaded" });
   }
 
   async assertMinimumColumnCount(min: number) {
-    const count = await this.page.locator("section").count();
+    const count = await this.page.locator("xpath=//section").count();
     expect(count, `Expected at least ${min} columns`).toBeGreaterThanOrEqual(min);
   }
 
-  async getFirstColumnName() {
-    return this.page.locator("section").first().locator("h2").innerText();
+  async getFirstColumnName(): Promise<string> {
+    return this.page.locator("xpath=(//section)[1]//h2").innerText();
   }
 
-  async getColumnCount() {
-    return this.page.locator("section").count();
+  async getColumnCount(): Promise<number> {
+    return this.page.locator("xpath=//section").count();
   }
 
   async findFirstTaskWithIncompleteSubtasks(
     startColumnIndex = 1
-  ) {
+  ): Promise<TaskInfo> {
+    const result = await this.searchForTaskWithIncompleteSubtasks(startColumnIndex);
+
+    if (result) return result;
+
+    console.log("No task with incomplete subtasks found. Reloading page and retrying...");
+    await this.page.reload({ waitUntil: "domcontentloaded" });
+
+    const resultAfterReload = await this.searchForTaskWithIncompleteSubtasks(startColumnIndex);
+
+    if (resultAfterReload) return resultAfterReload;
+
+    throw new Error(
+      "No task with incomplete subtasks found outside the first column, even after page reload"
+    );
+  }
+
+  private async searchForTaskWithIncompleteSubtasks(
+    startColumnIndex: number
+  ): Promise<TaskInfo | null> {
     const columnCount = await this.getColumnCount();
 
     for (let colIdx = startColumnIndex; colIdx < columnCount; colIdx++) {
-      const column = this.page.locator("section").nth(colIdx);
-      const tasks = column.locator("article");
+      const column = this.page.locator("xpath=//section").nth(colIdx);
+      const tasks = column.locator("xpath=.//article");
       const taskCount = await tasks.count();
 
       for (let taskIdx = 0; taskIdx < taskCount; taskIdx++) {
         const task = tasks.nth(taskIdx);
-        const subtaskText = await task.locator("p").first().innerText();
+        const subtaskText = await task.locator("xpath=(.//p)[1]").innerText();
         const { completed, total } = parseSubtaskCount(subtaskText);
 
         console.log(
@@ -48,7 +67,7 @@ export class KanbanPage {
         );
 
         if (total > 0 && completed < total) {
-          const name = await task.locator("h3").innerText();
+          const name = await task.locator("xpath=.//h3").innerText();
           console.log(
             `Selected task: "${name}" (${completed} of ${total}) in column ${colIdx + 1}`
           );
@@ -57,9 +76,7 @@ export class KanbanPage {
       }
     }
 
-    throw new Error(
-      "No task with incomplete subtasks found outside the first column"
-    );
+    return null; // Lo separé en dos metodos porque si no enconraba estaba mandando el error, entonces creo que esta mejor asi
   }
 
   async assertTaskSubtaskCount(
@@ -67,7 +84,7 @@ export class KanbanPage {
     expectedCompleted: number
   ) {
     const task = this.page
-      .locator("article")
+      .locator("xpath=//article")
       .filter({ hasText: taskName })
       .first();
 
@@ -75,7 +92,7 @@ export class KanbanPage {
       timeout: 10000,
     });
 
-    const text = await task.locator("p").first().innerText();
+    const text = await task.locator("xpath=(.//p)[1]").innerText();
     const { completed, total } = parseSubtaskCount(text);
 
     expect(
@@ -89,9 +106,7 @@ export class KanbanPage {
   async assertTaskIsInFirstColumn(taskName: string) {
     const firstColumnName = await this.getFirstColumnName();
     const taskInFirstColumn = this.page
-      .locator("section")
-      .first()
-      .locator("article")
+      .locator("xpath=(//section)[1]//article")
       .filter({ hasText: taskName });
 
     await expect(
